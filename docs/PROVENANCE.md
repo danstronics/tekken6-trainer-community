@@ -23,7 +23,7 @@ state = read32be(read32be(0x00B88480) + 0xF14)
 gold  = state + 0x120    # 0xA4 + 0x7C
 ```
 
-This is a structural inference from the two inspected binaries. It has not been confirmed in a real match. The trainer rejects a Gold field whose current 32-bit value is neither zero nor one, but a matching value alone does not prove the address is correct. Gold is one shared flag, not a separate character ID or per-player costume byte.
+This relocation was initially a structural inference from the two inspected binaries. On **2026-11-07**, the maintainer reported **Gold Azazel working in local testing** on Tekken 6 USA BLUS30359, update 1.03, using RPCS3 0.0.43-20570. See [validation details](VALIDATION.md) for the distinction between that live report and automated tests. The trainer rejects a Gold field whose current 32-bit value is neither zero nor one, but a matching value alone does not prove that a different build uses the same layout. Gold is one shared flag, not a separate character ID or per-player costume byte.
 
 ## Public payload policy
 

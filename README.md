@@ -2,7 +2,7 @@
 
 An independent Windows trainer for **Tekken 6 USA, BLUS30359, update 1.03, running in RPCS3**. New C# implementation and interface, with portable builds and documented memory behavior.
 
-**Experimental release:** automated tests exercise simulated game memory and the Windows memory adapter. Actual gameplay compatibility, including the relocated Gold Azazel flag, has **not** been verified. Other regions, updates and arcade editions are unsupported.
+**Gold Azazel confirmed working in local testing:** the maintainer reports that Gold Azazel works with **BLUS30359 / update 1.03 on RPCS3 0.0.43-20570**. Process selection, attachment and live guest-memory reads have also been verified. See the [test results and scope](docs/VALIDATION.md). Other regions, updates and arcade editions are unsupported.
 
 ## Download and use
 
@@ -18,7 +18,7 @@ If RPCS3 runs elevated, Windows requires matching privileges to access it. The t
 
 ## Features
 
-- P1/P2 Azazel and Nancy selection; experimental Gold Azazel with one shared skin flag.
+- P1/P2 Azazel and Nancy selection; Gold Azazel with one shared skin flag, confirmed working by the maintainer on the tested layout.
 - Battle health, invulnerability, blocking, clock, elapsed time, roulette and one-hit options.
 - Campaign team health, clock, rage, item drops, elemental resistance, attack effects and bonus damage.
 - Fight money, player-control routing, model visibility and movement speed.
@@ -59,4 +59,4 @@ To run only the tests:
 dotnet run --project tests/Trainer.Tests/Trainer.Tests.csproj -c Release
 ```
 
-GitHub Actions builds and tests pushes and pull requests. A `v*` tag also publishes a prerelease with the portable ZIP and checksums. Initial releases remain marked experimental until real gameplay has been verified.
+GitHub Actions builds and tests pushes and pull requests. A `v*` tag also publishes a prerelease with the portable ZIP and checksums. Builds remain prereleases while feature and version coverage expands.
