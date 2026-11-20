@@ -1,4 +1,5 @@
 using CommunityTrainer;
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 internal sealed class TestMemory : IGuestMemory
@@ -87,7 +88,8 @@ internal static class Program
             e.Tick(s);
             Check(m.Writes.Count == 0, "default UI settings perform no writes");
             s.Player1 = Boss.GoldAzazel;
-            Check(e.Tick(s).Contains("Gold active"), "Gold reports experimental activation");
+            var goldStatus = e.Tick(s);
+            Check(goldStatus.English.Contains("Gold active") && goldStatus.Chinese.Contains("黄金 Azazel 已启用"), "Gold reports experimental activation in both languages");
             Check(m.At(State + 0x120) == 1 && m.At(State + 0x174) == 68, "Gold flag and P1 ID are separate 32-bit words");
             Check(m.At(State + 0x178) == 43, "Gold P1 preserves the P2 character");
             s.Player2 = Boss.GoldAzazel;
@@ -115,15 +117,15 @@ internal static class Program
             (m, e, s) = New();
             m.Put(State + 0x120, 0x12345678);
             s.Player1 = Boss.GoldAzazel;
-            Check(e.Tick(s).Contains("rejected") && m.At(State + 0x120) == 0x12345678, "non-boolean Gold field is rejected");
+            Check(e.Tick(s).English.Contains("rejected") && m.At(State + 0x120) == 0x12345678, "non-boolean Gold field is rejected");
             (m, e, s) = New();
             s.Player1 = Boss.GoldAzazel;
             m.FailRead = State + 0x120;
-            Check(e.Tick(s).Contains("rejected") && !m.Writes.Any(w => w.Address == State + 0x120), "failed Gold read never becomes a write");
+            Check(e.Tick(s).English.Contains("rejected") && !m.Writes.Any(w => w.Address == State + 0x120), "failed Gold read never becomes a write");
             (m, e, s) = New();
             s.Player1 = Boss.GoldAzazel;
             m.FailWrite = State + 0x120;
-            Check(e.Tick(s).Contains("failed"), "failed native write is visible in status");
+            Check(e.Tick(s).English.Contains("failed"), "failed native write is visible in status");
 
             (m, e, s) = New();
             s.Player1 = Boss.GoldAzazel;
@@ -146,7 +148,7 @@ internal static class Program
             (m, e, s) = New();
             m.Put(0xB88480, 0);
             s.Player1 = Boss.GoldAzazel;
-            Check(e.Tick(s).Contains("Waiting") && m.Writes.Count == 0, "null root blocks every write");
+            Check(e.Tick(s).English.Contains("Waiting") && m.Writes.Count == 0, "null root blocks every write");
             m.Put(0xB88480, 0x1000000);
             m.Put(0x1000F14, 0);
             Check(m.Resolve(0xB88480, 0xF14, 0x174) == 0, "null intermediate pointer is rejected");
@@ -155,7 +157,7 @@ internal static class Program
             (m, e, s) = New();
             m.Put(Mode, 8, 1);
             s.Player1 = Boss.Azazel;
-            Check(e.Tick(s).Contains("supported") && m.Writes.Count == 0, "unrecognized mode blocks patches");
+            Check(e.Tick(s).English.Contains("supported") && m.Writes.Count == 0, "unrecognized mode blocks patches");
 
             (m, e, s) = New();
             s.Enabled.UnionWith(["defense1", "control2", "speed1", "invisible1"]);
@@ -204,13 +206,13 @@ internal static class Program
                 m.Put(0xB7FAA3, 1, 1);
                 m.Put(0xB7FB1F, 1, 1);
                 s.Enabled.Add(feature.Id);
-                Check(!e.Tick(s).Contains("failed") && m.Writes.Count > 0, "catalog option: " + feature.Id);
+                Check(!e.Tick(s).English.Contains("failed") && m.Writes.Count > 0, "catalog option: " + feature.Id);
             }
 
             using (var window = new MainWindow())
             {
                 Check(window.FeatureControlCount == Catalog.Features.Length, "UI exposes every catalog option");
-                Check(window.Text.Contains("3.0.0"), "independent UI constructs with correct version");
+                Check(window.Text.Contains("3.1.2"), "UI displays release version");
                 if (args.Length > 0)
                 {
                     window.ShowInTaskbar = false;
@@ -223,11 +225,72 @@ internal static class Program
                     window.Close();
                 }
             }
+            LanguageTest();
             NativeMemoryTest();
             Console.WriteLine($"RESULT: {checks} checks passed");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
+    }
+
+    private static void LanguageTest()
+    {
+        var folder = Directory.CreateTempSubdirectory("tekken6-language-");
+        try
+        {
+            var preference = new LanguagePreference(Path.Combine(folder.FullName, "language.txt"));
+            var simplifiedChinese = CultureInfo.GetCultureInfo("zh-CN");
+            var traditionalChinese = CultureInfo.GetCultureInfo("zh-TW");
+            var italian = CultureInfo.GetCultureInfo("it-IT");
+            using var chineseWindow = new MainWindow(preference, simplifiedChinese);
+            using var englishWindow = new MainWindow(preference, italian);
+            Check(chineseWindow.Text.StartsWith("铁拳6") && englishWindow.Text.StartsWith("Community Trainer"),
+                "fresh launches use Chinese only when Windows display language is Chinese");
+            Check(LanguagePreference.UsesChinese(UiLanguage.Automatic, traditionalChinese), "traditional Chinese Windows also defaults to the Chinese translation");
+
+            T Find<T>(string name) where T : Control => (T)chineseWindow.Controls.Find(name, true).Single();
+            var language = Find<ComboBox>("languagePicker");
+            Check(Find<TabPage>("Credits").Contains(language), "language selector is inside the original Credits tab");
+            var boss = Find<ComboBox>("player1");
+            var stage = Find<ComboBox>("stages");
+            var option = Find<CheckBox>("rage");
+            var status = Find<Label>("status");
+            // Exercise the native combo boxes used by a running window.
+            _ = language.Handle;
+            _ = boss.Handle;
+            _ = stage.Handle;
+            Check(stage.GetItemText((byte)69) == "Nightmare Train（噩梦列车）",
+                "Chinese picker preserves the in-game train name alongside the trainer translation");
+            Check(Catalog.StageIds.All(id => stage.GetItemText(id)!.Any(ch => ch >= 0x4e00 && ch <= 0x9fff)), "Chinese stage picker displays localized names for all 89 IDs");
+            boss.SelectedIndex = 3;
+            stage.SelectedItem = (byte)42;
+            option.Checked = true;
+            Check(Find<TabPage>("Campaign").Text == "剧情战役" && option.Text == "持续保持愤怒状态"
+                && boss.SelectedItem?.ToString() == "黄金 Azazel" && status.Text.Contains("连接"),
+                "Chinese localizes game terms, boss choices and status");
+            Check(Catalog.Features.All(feature => Find<CheckBox>(feature.Id).Text.Any(ch => ch is >= '\u4e00' and <= '\u9fff')),
+                "every feature is translated in the Chinese UI");
+            language.SelectedIndex = (int)UiLanguage.English;
+            Check(Find<TabPage>("Campaign").Text == "Campaign" && option.Checked && option.Text == "Keep rage active"
+                && boss.SelectedItem?.ToString() == "Gold Azazel" && Equals(stage.SelectedItem, (byte)42)
+                && status.Text.Contains("connect"), "live switch translates the UI while preserving selected options and values");
+            Check(stage.GetItemText((byte)0) == "Mystical Forest" && stage.GetItemText((byte)42) == "South Bay Warehouse Area", "English stage picker formats original IDs by name");
+            using var savedEnglish = new MainWindow(preference, simplifiedChinese);
+            Check(savedEnglish.Text.StartsWith("Community Trainer"), "saved English overrides Chinese Windows on reopen");
+            language.SelectedIndex = (int)UiLanguage.Chinese;
+            using var savedChinese = new MainWindow(preference, italian);
+            Check(savedChinese.Text.StartsWith("铁拳6"), "saved Chinese overrides English fallback on reopen");
+            language.SelectedIndex = (int)UiLanguage.Automatic;
+            using var restoredAutomatic = new MainWindow(preference, italian);
+            Check(chineseWindow.Text.StartsWith("铁拳6") && restoredAutomatic.Text.StartsWith("Community Trainer"),
+                "returning to Auto restores system language detection immediately and on reopen");
+        }
+        finally
+        {
+            var preferenceFile = Path.Combine(folder.FullName, "language.txt");
+            File.Delete(preferenceFile);
+            folder.Delete();
+        }
     }
 
     private static void NativeMemoryTest()

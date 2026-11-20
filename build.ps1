@@ -6,7 +6,9 @@ try {
     dotnet run --project tests/Trainer.Tests/Trainer.Tests.csproj -c Release
     if ($LASTEXITCODE -ne 0) { throw 'Regression checks failed.' }
     $artifactRoot = Join-Path $PSScriptRoot 'artifacts'
-    $packageName = 'tekken6-community-v3.0.0-win-x64'
+    $version = dotnet msbuild src/Trainer/Trainer.csproj -getProperty:Version
+    if ($LASTEXITCODE -ne 0 -or !$version) { throw 'Could not read trainer version.' }
+    $packageName = "tekken6-community-v$version-win-x64"
     $packagePath = Join-Path $artifactRoot $packageName
     New-Item -ItemType Directory -Force -Path $packagePath | Out-Null
     dotnet publish src/Trainer/Trainer.csproj -c Release -r win-x64 --self-contained true `

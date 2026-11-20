@@ -8,6 +8,10 @@ An independent Windows trainer for **Tekken 6 USA, BLUS30359, update 1.03, runni
 
 Download the Windows x64 ZIP from [Releases](https://github.com/danstronics/tekken6-trainer-community/releases), extract it, and run `Tekken6.Community.exe`. The portable ZIP includes .NET; no separate runtime installation is required. Keep the accompanying licenses with redistributed builds.
 
+Open **Credits / 鸣谢** to choose **Auto / 自动**, **English** or **简体中文**. Auto uses Simplified Chinese for any Chinese Windows display language and English otherwise. The interface updates immediately and remembers the choice on this PC.
+
+The stage picker lists all 89 stages by name. In Chinese it shows the English label alongside a community translation.
+
 1. Start your own game in RPCS3.
 2. Select the emulator's process and press **Connect**. The list identifies instances by PID.
 3. Leave the default PPU base `300000000` unless your emulator uses a different mapping.

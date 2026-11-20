@@ -2,7 +2,7 @@ namespace CommunityTrainer;
 
 internal enum Context { Battle, Campaign, Any }
 internal enum Boss { Unchanged, Azazel, Nancy, GoldAzazel }
-internal sealed record Feature(string Id, string Label, Context Context);
+internal sealed record Feature(string Id, LocalizedText Label, Context Context);
 internal sealed record Patch(uint Address, int Width, uint Value, bool Restore = false);
 internal sealed class Settings
 {
@@ -21,33 +21,33 @@ internal static class Catalog
 {
     public static readonly Feature[] Features =
     [
-        new("health1", "Keep player 1 health full", Context.Battle),
-        new("health2", "Keep player 2 health full", Context.Battle),
-        new("invincible1", "Player 1 invulnerability", Context.Battle),
-        new("invincible2", "Player 2 invulnerability", Context.Battle),
-        new("defense1", "Disable player 1 blocking", Context.Battle),
-        new("defense2", "Disable player 2 blocking", Context.Battle),
-        new("clock", "Hold round clock", Context.Battle),
-        new("best", "Set elapsed time to zero", Context.Battle),
-        new("roulette", "Enable roulette (Lars)", Context.Battle),
-        new("hit1", "Player 1 wins with one hit", Context.Battle),
-        new("hit2", "Player 2 wins with one hit", Context.Battle),
-        new("teamhealth", "Keep both players at 600 health", Context.Campaign),
-        new("campaignclock", "Hold campaign clock", Context.Campaign),
-        new("campaignbest", "Set campaign elapsed time to zero", Context.Campaign),
-        new("rage", "Keep rage active", Context.Campaign),
-        new("element", "Elemental resistance", Context.Campaign),
-        new("drops", "Maximum item drop rate", Context.Campaign),
-        new("electric", "Electric attack effect", Context.Campaign),
-        new("ice", "Freezing attack effect", Context.Campaign),
-        new("damage", "Custom bonus damage", Context.Campaign),
-        new("money", "Set fight money to 765999999", Context.Any),
-        new("control2", "Player 1 controls player 2", Context.Any),
-        new("control1", "Player 2 controls player 1", Context.Any),
-        new("invisible1", "Hide player 1 model", Context.Any),
-        new("invisible2", "Hide player 2 model", Context.Any),
-        new("speed1", "Custom player 1 movement speed", Context.Any),
-        new("speed2", "Custom player 2 movement speed", Context.Any)
+        new("health1", new("Keep player 1 health full", "保持 1P 生命值全满"), Context.Battle),
+        new("health2", new("Keep player 2 health full", "保持 2P 生命值全满"), Context.Battle),
+        new("invincible1", new("Player 1 invulnerability", "1P 无敌"), Context.Battle),
+        new("invincible2", new("Player 2 invulnerability", "2P 无敌"), Context.Battle),
+        new("defense1", new("Disable player 1 blocking", "禁用 1P 防御"), Context.Battle),
+        new("defense2", new("Disable player 2 blocking", "禁用 2P 防御"), Context.Battle),
+        new("clock", new("Hold round clock", "锁定回合倒计时"), Context.Battle),
+        new("best", new("Set elapsed time to zero", "将已用时间归零"), Context.Battle),
+        new("roulette", new("Enable roulette (Lars)", "启用轮盘（Lars）"), Context.Battle),
+        new("hit1", new("Player 1 wins with one hit", "1P 一击制胜"), Context.Battle),
+        new("hit2", new("Player 2 wins with one hit", "2P 一击制胜"), Context.Battle),
+        new("teamhealth", new("Keep both players at 600 health", "将双方生命值锁定为 600"), Context.Campaign),
+        new("campaignclock", new("Hold campaign clock", "锁定剧情战役倒计时"), Context.Campaign),
+        new("campaignbest", new("Set campaign elapsed time to zero", "将剧情战役已用时间归零"), Context.Campaign),
+        new("rage", new("Keep rage active", "持续保持愤怒状态"), Context.Campaign),
+        new("element", new("Elemental resistance", "属性抗性"), Context.Campaign),
+        new("drops", new("Maximum item drop rate", "道具掉落率最大化"), Context.Campaign),
+        new("electric", new("Electric attack effect", "攻击附带电击效果"), Context.Campaign),
+        new("ice", new("Freezing attack effect", "攻击附带冰冻效果"), Context.Campaign),
+        new("damage", new("Custom bonus damage", "自定义附加伤害"), Context.Campaign),
+        new("money", new("Set fight money to 765999999", "将格斗奖金设为 765999999"), Context.Any),
+        new("control2", new("Player 1 controls player 2", "由 1P 操控 2P"), Context.Any),
+        new("control1", new("Player 2 controls player 1", "由 2P 操控 1P"), Context.Any),
+        new("invisible1", new("Hide player 1 model", "隐藏 1P 角色模型"), Context.Any),
+        new("invisible2", new("Hide player 2 model", "隐藏 2P 角色模型"), Context.Any),
+        new("speed1", new("Custom player 1 movement speed", "自定义 1P 移动速度"), Context.Any),
+        new("speed2", new("Custom player 2 movement speed", "自定义 2P 移动速度"), Context.Any)
     ];
 
     public static readonly byte[] StageIds = Enumerable.Range(0, 137)
@@ -128,20 +128,21 @@ internal sealed class TrainerEngine(IGuestMemory memory)
         }
     }
 
-    public string Tick(Settings settings)
+    public LocalizedText Tick(Settings settings)
     {
         uint state = memory.Resolve(0xB88480, 0xF14, 0);
         uint modeAddress = memory.Resolve(0xB07878, 0x3BC, 0x517);
         if (state == 0 || modeAddress == 0 || !memory.ReadNumber(modeAddress, 1, out uint mode))
-            return "Waiting for game memory. Check BLUS30359 / update 1.03 and the PPU base.";
+            return new("Waiting for game memory. Check BLUS30359 / update 1.03 and the PPU base.",
+                "正在等待游戏内存就绪。请检查游戏版本（BLUS30359 / 更新 1.03）和 PPU 基址。");
         if (state != lastState)
         {
             saved.Clear(); // The previous object can already be freed/reused.
             lastState = state;
         }
-        if (mode is not (1 or 3)) return "Waiting for a supported game mode.";
+        if (mode is not (1 or 3)) return new("Waiting for a supported game mode.", "正在等待进入支持的游戏模式。");
         if (!memory.ReadNumber(state + 0x144, 4, out uint elapsed) || !memory.ReadNumber(state + 0x143, 1, out uint stage))
-            return "Game state is unreadable; no patches applied.";
+            return new("Game state is unreadable; no patches applied.", "无法读取游戏状态，未应用任何修改。");
 
         failures = 0;
         active.Clear();
@@ -189,9 +190,14 @@ internal sealed class TrainerEngine(IGuestMemory memory)
         }
         if (mode == 1 && settings.Stage is byte selected) Write(new(state + 0x173, 1, selected));
         RestoreInactive();
-        if (invalidGold) return "Gold field rejected: this build's Gold layout is not validated.";
-        if (failures > 0) return $"{failures} memory operation(s) failed. Some options were not applied.";
-        return gold ? "Gold active (experimental). One shared skin flag for both players." : $"Connected — {(mode == 1 ? "battle" : "campaign")}.";
+        if (invalidGold) return new("Gold field rejected: this build's Gold layout is not validated.",
+            "无法启用黄金 Azazel。此版本的黄金外观内存字段尚未验证。");
+        if (failures > 0) return new($"{failures} memory operation(s) failed. Some options were not applied.",
+            $"有 {failures} 次内存操作失败，部分选项未生效。");
+        if (gold) return new("Gold active (experimental). One shared skin flag for both players.",
+            "黄金 Azazel 已启用（实验功能）。双方共用同一外观设置。");
+        return mode == 1 ? new("Connected - battle.", "已连接：对战。")
+            : new("Connected - campaign.", "已连接：剧情战役。");
     }
 
     public bool Restore()
